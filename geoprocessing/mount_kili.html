@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mount Kilimanjaro Surface</title>
+</head>
+<body>
+
+<div id="myDiv" style="width: 800px; height: 600px;"></div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+  d3.csv("kili_elevations.csv").then(function(rows) {
+    console.log("Loaded rows:", rows.length);
+
+    // --- 0. Detect column names ---
+    var keys   = Object.keys(rows[0]);
+    var latKey = keys.find(k => k.toLowerCase().includes("lat"));
+    var lonKey = keys.find(k => k.toLowerCase().includes("lon"));
+    var elevKey= keys.find(k => k.toLowerCase().includes("elev"));
+    console.log("Using keys:", { latKey, lonKey, elevKey });
+
+    // --- 1. Convert to numbers ---
+    rows.forEach(function(d) {
+      d.lat       = +d[latKey];
+      d.lon       = +d[lonKey];
+      d.elevation = +d[elevKey];
+    });
+
+    // --- 2. Unique sorted lat / lon arrays ---
+    var uniqueLats = Array.from(new Set(rows.map(d => d.lat))).sort((a, b) => a - b);
+    var uniqueLons = Array.from(new Set(rows.map(d => d.lon))).sort((a, b) => a - b);
+    console.log("uniqueLats:", uniqueLats.length, "uniqueLons:", uniqueLons.length);
+
+    // --- 3. Downsample to keep grid manageable (≈150×150) ---
+    var targetSize = 150; // try ~150 steps per direction
+
+    var latStep = Math.max(1, Math.floor(uniqueLats.length / targetSize));
+    var lonStep = Math.max(1, Math.floor(uniqueLons.length / targetSize));
+
+    var subLats = [];
+    for (var i = 0; i < uniqueLats.length; i += latStep) {
+      subLats.push(uniqueLats[i]);
+    }
+
+    var subLons = [];
+    for (var j = 0; j < uniqueLons.length; j += lonStep) {
+      subLons.push(uniqueLons[j]);
+    }
+
+    console.log("subLats:", subLats.length, "subLons:", subLons.length);
+
+    // --- 4. Build lookup map (lat,lon) -> elevation ---
+    var elevMap = {};
+    rows.forEach(function(d) {
+      var key = d.lat + "," + d.lon;
+      elevMap[key] = d.elevation;
+    });
+
+    // --- 5. Build 2D z grid over the downsampled axes ---
+    var z_data = subLats.map(function(lat) {
+      return subLons.map(function(lon) {
+        var key = lat + "," + lon;
+        var z = elevMap[key];
+        return z !== undefined ? z : null;
+      });
+    });
+
+    console.log("z_data size:", z_data.length, "x", z_data[0].length);
+
+    var data = [{
+      type: 'surface',
+      x: subLons,    // longitude
+      y: subLats,    // latitude
+      z: z_data
+    }];
+
+    var layout = {
+      title: { text: 'Mount Kilimanjaro Elevation (SRTM, downsampled surface)' },
+      autosize: true,
+      scene: {
+        xaxis: { title: 'Longitude' },
+        yaxis: { title: 'Latitude' },
+        zaxis: { title: 'Elevation (m)' }
+      },
+      margin: { l: 65, r: 50, b: 65, t: 90 }
+    };
+
+    Plotly.newPlot('myDiv', data, layout);
+  })
+  .catch(function(error) {
+    console.error("Error loading CSV:", error);
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kilimanjaro Points</title>
+</head>
+<body>
+  <div id="myDiv" style="width: 800px; height: 600px;"></div>
+
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <script>
+  d3.csv("kili_elevations.csv").then(function(rows) {
+
+    // --- 1. Inspect the first row to detect the real column names ---
+    console.log("First row:", rows[0]);
+    var keys = Object.keys(rows[0]);
+    console.log("Column names:", keys);
+
+    // Find keys containing 'lat', 'lon', 'elev' (case-insensitive)
+    var latKey  = keys.find(k => k.toLowerCase().includes("lat"));
+    var lonKey  = keys.find(k => k.toLowerCase().includes("lon"));
+    var elevKey = keys.find(k => k.toLowerCase().includes("elev"));
+
+    console.log("Using keys:", { latKey, lonKey, elevKey });
+
+    // --- 2. Convert strings -> numbers using those keys ---
+    rows.forEach(function(d) {
+      d.lat       = +d[latKey];
+      d.lon       = +d[lonKey];
+      d.elevation = +d[elevKey];
+    });
+
+    // Optional: print ranges so you can sanity-check in the console
+    var lats = rows.map(d => d.lat);
+    var lons = rows.map(d => d.lon);
+    var elev = rows.map(d => d.elevation);
+    console.log("lat extent:", d3.extent(lats));
+    console.log("lon extent:", d3.extent(lons));
+    console.log("elev extent:", d3.extent(elev));
+
+    // --- 3. (Optional) sample so the browser doesn't die on millions of points ---
+    var sample = rows.slice(0, 5000);  // first 5000 points is plenty to see something
+
+    var sampleLats = sample.map(d => d.lat);
+    var sampleLons = sample.map(d => d.lon);
+    var sampleElev = sample.map(d => d.elevation);
+
+    // --- 4. Plot as 3D scatter ---
+    var data = [{
+      type: "scatter3d",
+      mode: "markers",
+      x: sampleLons,         // longitude
+      y: sampleLats,         // latitude
+      z: sampleElev,         // elevation
+      marker: {
+        size: 3,
+        opacity: 0.8
+      }
+    }];
+
+    var layout = {
+      title: "Mount Kilimanjaro Elevation (points)",
+      scene: {
+        xaxis: { title: "Longitude" },
+        yaxis: { title: "Latitude" },
+        zaxis: { title: "Elevation (m)" }
+      }
+    };
+
+    Plotly.newPlot("myDiv", data, layout);
+  })
+  .catch(function(error) {
+    console.error("Error loading CSV:", error);
+  });
+  </script>
+</body>
+</html>
